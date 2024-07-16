@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const tradesController_1 = require("../controllers/tradesController");
+const tradesdailyController_1 = require("../controllers/tradesdailyController");
+const router = (0, express_1.Router)();
+router.get('/trades/stats', tradesController_1.getTradeStats);
+router.get('/all-trades', tradesController_1.getAllTradesForClient);
+router.get('/daily-trade-stats', tradesdailyController_1.getDailyTradeStats);
+exports.default = router;

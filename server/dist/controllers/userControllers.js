@@ -17,29 +17,32 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const user_1 = require("../models/user");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const newUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    //extraigo el body de request
-    const { username, password } = req.body;
-    //verifico si el usuario existe en la bd
-    const user = yield user_1.User.findOne({ where: { username: username } });
-    if (user) {
-        return res.status(400).json({
-            message: `El usuario ${username} ya existe`,
-        });
-    }
-    const hashedPassword = yield bcrypt_1.default.hash(password, 10);
+    const { username, email, password, nickname, type } = req.body;
     try {
-        //guardamos el usuario
-        yield user_1.User.create({
-            username: username,
+        // Verifico si el usuario existe en la BD
+        const existingUser = yield user_1.User.findOne({ where: { username } });
+        if (existingUser) {
+            return res.status(400).json({
+                msg: `El usuario ${username} ya existe`,
+            });
+        }
+        const hashedPassword = yield bcrypt_1.default.hash(password, 10);
+        // Guardamos el usuario
+        const newUser = yield user_1.User.create({
+            username,
+            email,
             password: hashedPassword,
+            nickname,
+            type
         });
-        res.json({
+        res.status(201).json({
             msg: `Usuario ${username} creado exitosamente!`,
+            user: newUser,
         });
     }
     catch (error) {
-        res.status(400).json({
-            msg: "Error al crear usuario",
+        res.status(500).json({
+            msg: 'Error al crear usuario',
             error: error,
         });
     }
@@ -47,24 +50,33 @@ const newUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
 exports.newUser = newUser;
 const loginUser = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { username, password } = req.body;
-    // primer paso Validar si el usuario existe
-    const user = yield user_1.User.findOne({ where: { username: username } });
-    if (!user) {
-        return res.status(400).json({
-            msg: `Usuario ${username} No registrado en nuestros datos!`,
+    try {
+        // Validar si el usuario existe
+        const user = yield user_1.User.findOne({ where: { username } });
+        if (!user) {
+            return res.status(400).json({
+                msg: `Usuario ${username} no registrado en nuestros datos!`,
+            });
+        }
+        // Validamos la clave
+        const passwordValid = yield bcrypt_1.default.compare(password, user.password);
+        if (!passwordValid) {
+            return res.status(400).json({
+                msg: 'Password incorrecto',
+            });
+        }
+        // Generamos token
+        const token = jsonwebtoken_1.default.sign({ username: user.username, id: user.id }, process.env.SECRET_KEY || 'give1246', { expiresIn: '1h' });
+        res.json({
+            msg: 'Login exitoso',
+            token,
         });
     }
-    // Validamos la clave
-    const passwordValid = yield bcrypt_1.default.compare(password, user.password);
-    if (!passwordValid) {
-        return res.status(400).json({
-            msg: 'Password Incorrecto'
+    catch (error) {
+        res.status(500).json({
+            msg: 'Error al iniciar sesión',
+            error: error,
         });
     }
-    //Generamos token
-    const token = jsonwebtoken_1.default.sign({
-        username: username
-    }, process.env.SECRET_KEY || 'give1246', { expiresIn: '50000' });
-    res.json(token);
 });
 exports.loginUser = loginUser;

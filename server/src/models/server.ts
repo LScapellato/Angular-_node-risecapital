@@ -1,10 +1,17 @@
 import express, {Application} from 'express';
-import routesProduct from '../routes/products';
+import routesClient from '../routes/client';
 import routesUser from '../routes/user';
+import routesUpload from '../routes/upload';
+import tradeStats from '../routes/tradestats';
+import operationRoutes from '../routes/operation';
+import liquidationRoutes from '../routes/liquidation';
+import paymentsRoutes from '../routes/payment';
 import cors from 'cors';
+import validateToken from '../routes/validate-token';
 
-import { Product } from './product';
-import { User } from './user';
+import sequelize from '../db/connection';
+import Liquidation from './liquidation';
+import ClientInfo from './clientinfo';
 
 
 class Server {
@@ -18,7 +25,7 @@ class Server {
         this.app = express();
         this.port = process.env.PORT || '3001';
         this.listen();
-        this.midlewares();
+        this.middlewares();
         this.routes();
         this.dbConnect();
        
@@ -32,12 +39,18 @@ class Server {
     }
 
     routes(){
-        this.app.use('/api/products', routesProduct);
+        
         this.app.use('/api/users', routesUser );
-
+        this.app.use('/api/upload', validateToken, routesUpload);
+        this.app.use('/api' , validateToken, tradeStats,liquidationRoutes);
+        this.app.use('/api/operations', validateToken, operationRoutes);
+        this.app.use('/api/client', validateToken, routesClient);
+        this.app.use('/api/payments', paymentsRoutes)
+        
+        
     }
 
-    midlewares () {
+    middlewares () {
         //parseo body
         this.app.use(express.json());
 
@@ -47,8 +60,16 @@ class Server {
 
     async dbConnect() {
         try {
-            await Product.sync();
-            await User.sync();
+            // Sincronizar todos los modelos
+            await sequelize.sync({ alter: true });
+            console.log('Base de datos sincronizada');
+            try {
+                await Liquidation.belongsTo(ClientInfo, { foreignKey: 'clientId', targetKey: 'clientId', as: 'Client' });
+                console.log('Relación establecida correctamente');
+              } catch (error) {
+                console.error('Error al establecer la relación:', error);
+              }
+            
           } catch (error) {
             console.error('Unable to connect to the database:', error);
           }
